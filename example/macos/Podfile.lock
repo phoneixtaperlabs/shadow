@@ -1,0 +1,22 @@
+PODS:
+  - autopilot_plugin (0.0.1):
+    - FlutterMacOS
+  - FlutterMacOS (1.0.0)
+
+DEPENDENCIES:
+  - autopilot_plugin (from `Flutter/ephemeral/.symlinks/plugins/autopilot_plugin/macos`)
+  - FlutterMacOS (from `Flutter/ephemeral`)
+
+EXTERNAL SOURCES:
+  autopilot_plugin:
+    :path: Flutter/ephemeral/.symlinks/plugins/autopilot_plugin/macos
+  FlutterMacOS:
+    :path: Flutter/ephemeral
+
+SPEC CHECKSUMS:
+  autopilot_plugin: cca0493af905826267d2bd863ebbd40c8f02b7b2
+  FlutterMacOS: 8f6f14fa908a6fb3fba0cd85dbd81ec4b251fb24
+
+PODFILE CHECKSUM: 1d593e10997511ead9744d7facbd4de87509a5f0
+
+COCOAPODS: 1.16.2
