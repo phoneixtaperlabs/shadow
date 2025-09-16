@@ -23,11 +23,8 @@ final class NotiWindowController: NSWindowController, NSWindowDelegate {
         notiWindow.delegate = self
         notiWindow.isReleasedWhenClosed = false
         
-        // 2. Initialize the logger in the init method using a Task
-        Task {
-            self.logger = await AutopilotLogger.shared
-            self.logger?.info("NotiWindowController initialized")
-        }
+        self.logger = AutopilotLogger.shared
+        self.logger?.info("NotiWindowController initialized")
     }
     
     deinit {

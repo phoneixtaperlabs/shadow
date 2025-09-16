@@ -1,11 +1,11 @@
 import Foundation
 import os.log
 
-// MARK: - AutopilotLogger Class
-final class AutopilotLogger {
-    // MARK: - Singleton
+// MARK: - AutopilotLogger Actor (Main Definition)
+actor AutopilotLogger {
+    
+    // MARK: - Singleton & Configuration
     private static var _shared: AutopilotLogger?
-    private static let configurationLock = NSLock()
     
     static var shared: AutopilotLogger {
         guard let logger = _shared else {
@@ -14,48 +14,37 @@ final class AutopilotLogger {
         return logger
     }
     
-    // MARK: - Configuration
     static func configure(subsystem: String,
                           category: String,
                           logDirectory: URL? = nil,
                           retentionDays: Int = 30,
                           minimumLogLevel: LogType = .debug) {
-        configurationLock.lock()
-        defer { configurationLock.unlock() }
-        
         if _shared == nil {
-            _shared = AutopilotLogger(subsystem: subsystem,
-                                   category: category,
-                                   logDirectory: logDirectory,
-                                   retentionDays: retentionDays,
-                                   minimumLogLevel: minimumLogLevel)
+            let logger = AutopilotLogger(subsystem: subsystem,
+                                       category: category,
+                                       logDirectory: logDirectory,
+                                       retentionDays: retentionDays,
+                                       minimumLogLevel: minimumLogLevel)
+            _shared = logger
+            
+            // 초기화 후 바로 설정 작업 수행
+            Task {
+                await logger.setupLogger()
+            }
         } else {
             print("Warning: AutopilotLogger already configured. Configuration can only be set once at startup.")
         }
     }
     
-    // MARK: - Properties
-    private let osLog: OSLog
-    private let logDirectory: URL
-    private var currentLogFileURL: URL?
-    private var logFileHandle: FileHandle?
-    private let dateFormatter: DateFormatter
-    private let timestampFormatter: DateFormatter
-    private let logQueue = DispatchQueue(label: "com.shadow.autopilot_plugin.logging", qos: .utility)
-    private let retentionDays: Int
-    private let fileLock = NSLock()
-    
-    // Current date tracking for rotation
-    private var currentLogDate: String = ""
-    
-    // Log level configuration
-    var minimumLogLevel: LogType {
-        didSet {
-            info("Minimum log level changed to: \(minimumLogLevel.rawValue)")
-        }
+    // MARK: - Nested Types
+    private struct LogEntry {
+        let message: String
+        let type: LogType
+        let file: String
+        let function: String
+        let line: Int
     }
     
-    // Log levels
     enum LogType: String, Comparable {
         case debug = "DEBUG"
         case info = "INFO"
@@ -81,23 +70,34 @@ final class AutopilotLogger {
         }
     }
     
-    // MARK: - Initialization
+    // MARK: - Properties
+    private let osLog: OSLog
+    private let logDirectory: URL
+    private var currentLogFileURL: URL?
+    private var logFileHandle: FileHandle?
+    private let dateFormatter: DateFormatter
+    private let timestampFormatter: DateFormatter
+    private let iso8601Formatter: ISO8601DateFormatter
+    private let retentionDays: Int
+    private var currentLogDate: String = ""
+    private(set) var minimumLogLevel: LogType
+    
+    // AsyncStream Infrastructure
+    private var logStreamContinuation: AsyncStream<LogEntry>.Continuation?
+    private var consumerTask: Task<Void, Never>?
+    
+    // MARK: - Initialization & Deinitialization
     private init(subsystem: String,
                  category: String,
                  logDirectory: URL? = nil,
                  retentionDays: Int = 7,
                  minimumLogLevel: LogType = .debug) {
         
-        // Initialize OSLog
         self.osLog = OSLog(subsystem: subsystem, category: category)
-        
-        // Set log level
         self.minimumLogLevel = minimumLogLevel
-        
-        // Set retention period
         self.retentionDays = retentionDays
         
-        // Initialize date formatters
+        // Formatters 초기화
         self.dateFormatter = DateFormatter()
         self.dateFormatter.dateFormat = "yyyy-MM-dd"
         self.dateFormatter.timeZone = TimeZone.current
@@ -106,7 +106,9 @@ final class AutopilotLogger {
         self.timestampFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         self.timestampFormatter.timeZone = TimeZone.current
         
-        // Setup log directory
+        self.iso8601Formatter = ISO8601DateFormatter()
+        
+        // Log Directory 설정
         let fileManager = FileManager.default
         if let customLogDirectory = logDirectory {
             self.logDirectory = customLogDirectory
@@ -116,135 +118,158 @@ final class AutopilotLogger {
                 .appendingPathComponent("logs", isDirectory: true)
         }
         
-        // Create logs directory if it doesn't exist
-        do {
-            try fileManager.createDirectory(at: self.logDirectory, withIntermediateDirectories: true)
-        } catch {
-            print("Failed to create log directory: \(error)")
-        }
+        // Directory 생성
+        try? fileManager.createDirectory(at: self.logDirectory, withIntermediateDirectories: true)
         
-        // Initialize with current date
+        
+        // 초기 파일 설정
         self.currentLogDate = self.dateFormatter.string(from: Date())
-        
-        // Setup current log file
-        self.setupLogFile()
-        
-        // Clean up old files on startup
-        self.cleanupOldLogFiles()
-        
-        // Log initialization
-        self.log(message: "AutopilotLogger initialized with subsystem: \(subsystem), category: \(category), minimumLogLevel: \(minimumLogLevel.rawValue), retentionDays: \(retentionDays)",
-                 type: .info, file: #file, function: #function, line: #line)
     }
     
+    
     deinit {
-        // Clean up resources
-        fileLock.lock()
-        defer { fileLock.unlock() }
-        
+        logStreamContinuation?.finish()
         try? self.logFileHandle?.close()
-        self.logFileHandle = nil
-        
-        // Log deinitialization (this might not write due to closed handle)
         os_log("AutopilotLogger deinitialized", log: self.osLog, type: .info)
     }
     
-    // MARK: - Public Methods
-    
-    /// Force manual log rotation (useful for testing or manual rotation)
-    func forceRotateLogFile() {
-        logQueue.async { [weak self] in
-            self?.rotateLogFileIfNeeded(force: true)
-        }
+    /// 스트림에서 받은 로그를 처리하는 내부 메서드
+    private func logInternal(entry: LogEntry) {
+        guard entry.type >= minimumLogLevel else { return }
+        writeToFile(entry: entry)
     }
     
-    /// Log a message with a specific log level and source location information
+    private func setupLogger() {
+        // AsyncStream 및 Consumer Task 설정
+        let (logStream, continuation) = AsyncStream.makeStream(of: LogEntry.self, bufferingPolicy: .bufferingNewest(1000))
+        self.logStreamContinuation = continuation
+        
+        // Consumer Task 설정
+        self.consumerTask = Task {
+            for await entry in logStream {
+                print("Entry 입니다~~~ \(entry)")
+                self.logInternal(entry: entry)
+            }
+        }
+        
+        // 파일 설정
+        self.setupLogFile()
+        self.cleanupOldLogFiles()
+        
+        // 초기화 로그 기록
+        self.log(message: "AutopilotLogger setup completed with minimumLogLevel: \(minimumLogLevel.rawValue), retentionDays: \(retentionDays)",
+                 type: .info, file: #file, function: #function, line: #line)
+    }
+}
+
+// MARK: - Public Logging API
+extension AutopilotLogger {
+    
+    /// 내부적으로 사용되는 기본 로그 메서드. 로그 엔트리를 비동기 스트림으로 전달합니다.
     func log(message: String,
              type: LogType,
              file: String = #file,
              function: String = #function,
              line: Int = #line) {
         
-        // Skip logging if below minimum log level
-        guard type >= minimumLogLevel else {
-            return
-        }
-        
-        // Log to OSLog
+        // 1. OSLog는 즉시 기록 (Thread-safe)
         os_log("%{public}@", log: self.osLog, type: type.osLogType, message)
         
-        // Write to file asynchronously
-        logQueue.async { [weak self] in
-            self?.writeToFile(message: message, type: type, file: file, function: function, line: line)
+        // 2. 파일 로깅은 LogEntry를 만들어 AsyncStream으로 보냅니다.
+        let entry = LogEntry(message: message, type: type, file: file, function: function, line: line)
+        logStreamContinuation?.yield(entry)
+    }
+    
+    nonisolated func debug(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+        Task {
+            await log(message: message, type: .debug, file: file, function: function, line: line)
         }
     }
     
-    /// Convenience methods for different log levels with source location
-    func debug(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
-        log(message: message, type: .debug, file: file, function: function, line: line)
+    nonisolated func info(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+        Task {
+            await log(message: message, type: .info, file: file, function: function, line: line)
+        }
     }
     
-    func info(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
-        log(message: message, type: .info, file: file, function: function, line: line)
+    nonisolated func warning(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+        Task {
+            await log(message: message, type: .warning, file: file, function: function, line: line)
+        }
     }
     
-    func warning(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
-        log(message: message, type: .warning, file: file, function: function, line: line)
+    nonisolated func error(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
+        Task {
+            await log(message: message, type: .error, file: file, function: function, line: line)
+        }
+    }
+}
+
+// MARK: - Actor State & Control
+extension AutopilotLogger {
+    
+    /// 로그 레벨을 동적으로 변경합니다.
+    func updateMinimumLogLevel(_ level: LogType) {
+        minimumLogLevel = level
+        log(message: "Minimum log level changed to: \(level.rawValue)",
+            type: .info, file: #file, function: #function, line: #line)
     }
     
-    func error(_ message: String, file: String = #file, function: String = #function, line: Int = #line) {
-        log(message: message, type: .error, file: file, function: function, line: line)
+    /// 앱 종료 전, 버퍼에 남아있는 모든 로그를 처리하고 파일을 닫습니다.
+    func shutdown() async {
+        logStreamContinuation?.finish()
+        await consumerTask?.value
+        try? self.logFileHandle?.close()
+        self.logFileHandle = nil
     }
+}
+
+// MARK: - Private File Management
+extension AutopilotLogger {
     
-    // MARK: - Private Methods
-    
-    private func writeToFile(message: String, type: LogType, file: String, function: String, line: Int) {
-        // Check if we need to rotate first (this handles day changes)
+    private func writeToFile(entry: LogEntry) {
         rotateLogFileIfNeeded()
         
         guard let logFileHandle = self.logFileHandle else {
-            print("Log file handle is nil, attempting to recreate")
+            print("Log file handle is nil. Retrying setup...")
             setupLogFile()
-            guard let logFileHandle = self.logFileHandle else {
-                print("Failed to recreate log file handle")
+            // 핸들 재설정 후 다시 시도 (재귀 호출 대신 guard로 안전하게 처리)
+            guard let newHandle = self.logFileHandle else {
+                print("Failed to recreate log file handle. Log will be dropped.")
                 return
+            }
+            // 핸들 생성 성공 시, 파일에 쓰기
+            do {
+                try writeEntry(entry, to: newHandle)
+            } catch {
+                print("Failed to write to new log file handle: \(error)")
             }
             return
         }
         
-        // Extract filename from path
-        let filename = URL(fileURLWithPath: file).lastPathComponent
-        
-        // Format log entry
-        let utcTimestamp = ISO8601DateFormatter().string(from: Date())
+        do {
+            try writeEntry(entry, to: logFileHandle)
+        } catch {
+            print("Failed to write to log file: \(error)")
+        }
+    }
+    
+    private func writeEntry(_ entry: LogEntry, to handle: FileHandle) throws {
+        let utcTimestamp = iso8601Formatter.string(from: Date())
         let localTimestamp = timestampFormatter.string(from: Date())
         let threadID = Thread.current.hashValue
         
-        let logEntry = "[UTC: \(utcTimestamp)] [LOCAL: \(localTimestamp)] [\(type.rawValue)] [Thread: \(threadID)] [\(function)] \(message)\n"
+        let logMessage = "[UTC: \(utcTimestamp)] [LOCAL: \(localTimestamp)] [\(entry.type.rawValue)] [Thread: \(threadID)] [\(entry.function)] \(entry.message)\n"
         
-        // Write to file with proper error handling
-        guard let data = logEntry.data(using: .utf8) else {
+        guard let data = logMessage.data(using: .utf8) else {
             print("Failed to encode log entry to UTF-8")
             return
         }
         
-        fileLock.lock()
-        defer { fileLock.unlock() }
-        
-        do {
-            try logFileHandle.write(contentsOf: data)
-            try logFileHandle.synchronize()
-        } catch {
-            print("Failed to write to log file: \(error)")
-            // Attempt to recreate file handle
-            setupLogFile()
-        }
+        try handle.write(contentsOf: data)
     }
     
-    private func setupLogFile() {
-        fileLock.lock()
-        defer { fileLock.unlock() }
-        
+    func setupLogFile() {
         // Close existing handle
         try? logFileHandle?.close()
         logFileHandle = nil
@@ -277,7 +302,7 @@ final class AutopilotLogger {
             
             // Write header if this is a new file
             if !fileExists || logFileHandle?.offsetInFile == 0 {
-                let header = "--- Autopilot Plugin Log File: \(currentLogDate) ---\n"
+                let header = "--- Screenshot Module Log File: \(currentLogDate) ---\n"
                 if let headerData = header.data(using: .utf8) {
                     try logFileHandle?.write(contentsOf: headerData)
                 }
@@ -288,7 +313,7 @@ final class AutopilotLogger {
         }
     }
     
-    private func rotateLogFileIfNeeded(force: Bool = false) {
+    func rotateLogFileIfNeeded(force: Bool = false) {
         let today = dateFormatter.string(from: Date())
         
         // Check if we need to rotate (new day or force)
@@ -306,25 +331,31 @@ final class AutopilotLogger {
         }
     }
     
-    private func cleanupOldLogFiles() {
+    func cleanupOldLogFiles() {
         let fileManager = FileManager.default
         
         do {
-            let files = try fileManager.contentsOfDirectory(at: logDirectory,
-                                                          includingPropertiesForKeys: [.creationDateKey],
-                                                          options: [])
-            
+            let fileURLs = try fileManager.contentsOfDirectory(at: logDirectory, includingPropertiesForKeys: nil)
             let cutoffDate = Calendar.current.date(byAdding: .day, value: -retentionDays, to: Date())!
             
-            for fileURL in files where fileURL.pathExtension == "log" {
-                do {
-                    let attributes = try fileManager.attributesOfItem(atPath: fileURL.path)
-                    if let creationDate = attributes[.creationDate] as? Date, creationDate < cutoffDate {
-                        try fileManager.removeItem(at: fileURL)
-                        print("Deleted old log file: \(fileURL.lastPathComponent)")
+            // DateFormatter는 파일 이름 파싱용으로 재사용
+            let fileDateFormatter = DateFormatter()
+            fileDateFormatter.dateFormat = "yyyy-MM-dd"
+            
+            for fileURL in fileURLs where fileURL.pathExtension == "log" {
+                // 파일 이름에서 날짜 부분 추출 (e.g., "2025-08-26")
+                let fileName = fileURL.deletingPathExtension().lastPathComponent
+                let dateString = String(fileName.split(separator: "-").prefix(3).joined(separator: "-"))
+                
+                if let fileDate = fileDateFormatter.date(from: dateString) {
+                    if fileDate < cutoffDate {
+                        do {
+                            try fileManager.removeItem(at: fileURL)
+                            print("Deleted old log file: \(fileURL.lastPathComponent)")
+                        } catch {
+                            print("Failed to delete old log file \(fileURL.lastPathComponent): \(error)")
+                        }
                     }
-                } catch {
-                    print("Failed to process log file \(fileURL.lastPathComponent): \(error)")
                 }
             }
         } catch {

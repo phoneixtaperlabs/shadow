@@ -51,6 +51,7 @@ public class AutopilotPlugin: NSObject, FlutterPlugin {
         // 파일이 실제로 존재하는지 확인
         guard FileManager.default.fileExists(atPath: filePath) else {
             print("❌ ERROR: File does not exist at constructed path: \(filePath)")
+            AutopilotLogger.shared.error("❌ ERROR: File does not exist at constructed path: \(filePath)")
             return
         }
         
@@ -60,7 +61,9 @@ public class AutopilotPlugin: NSObject, FlutterPlugin {
             let data = try Data(contentsOf: fileUrl)
             self.shadowIconImage = NSImage(data: data)
             print("✅ SVG icon 'shadow.svg' loaded as NSImage.")
+            AutopilotLogger.shared.info("✅ Autopilit Notification SVG Icon loaded successfully")
         } catch {
+            AutopilotLogger.shared.error("❌ ERROR: Failed to create NSImage from SVG asset: \(error)")
             print("❌ ERROR: Failed to create NSImage from SVG asset: \(error)")
         }
     }

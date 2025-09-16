@@ -70,10 +70,9 @@ final class NotiWindowManager {
     private var logger: AutopilotLogger?
     
     private init() {
-        Task {
-            self.logger = await AutopilotLogger.shared
-            self.logger?.info("NotiWindowManager initialized")
-        }
+        self.logger = AutopilotLogger.shared
+        self.logger?.info("NotiWindowManager initialized")
+        
     }
     
     deinit {
