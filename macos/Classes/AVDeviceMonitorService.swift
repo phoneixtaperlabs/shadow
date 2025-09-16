@@ -94,6 +94,7 @@ final class AVDeviceMonitorService: AVMonitoring {
     func startMonitoring() {
         guard logProcess == nil else {
             logger.warning("Monitoring is already active")
+            AutopilotLogger.shared.warning("[AVDevice] Monitoring is already active")
             return
         }
         
@@ -117,6 +118,7 @@ final class AVDeviceMonitorService: AVMonitoring {
     private func isLogExecutableAvailable() -> Bool {
         guard FileManager.default.isExecutableFile(atPath: "/usr/bin/log") else {
             logger.error("/usr/bin/log not found – Unified Logging unavailable")
+            AutopilotLogger.shared.error("/usr/bin/log not found – Unified Logging unavailable")
             return false
         }
         return true
@@ -150,6 +152,7 @@ final class AVDeviceMonitorService: AVMonitoring {
         errorPipe.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             guard !data.isEmpty, let output = String(data: data, encoding: .utf8) else { return }
+            AutopilotLogger.shared.error("STDERR -- \(output)")
             self.logger.error("STDERR -- \(output)")
         }
     }
@@ -166,6 +169,7 @@ final class AVDeviceMonitorService: AVMonitoring {
             try process.run()
             logger.info("Log stream process started successfully")
         } catch {
+            AutopilotLogger.shared.error("Failed to start LS--p \(error.localizedDescription)")
             logger.error("Failed to start log stream process: \(error)")
             errorSubject.send(.logProcessFailedToStart(error))
             handleProcessTermination()
@@ -311,6 +315,7 @@ final class AVDeviceMonitorService: AVMonitoring {
     }
     
     private func handleProcessTermination() {
+        AutopilotLogger.shared.warning("LP terminated unexpectedly")
         logger.warning("Log process terminated unexpectedly")
         errorSubject.send(.logProcessTerminatedUnexpectedly)
         

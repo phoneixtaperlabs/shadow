@@ -169,6 +169,7 @@ final class WindowMonitorService: WindowMonitoring {
         let options = CGWindowListOption(arrayLiteral: [.optionAll, .excludeDesktopElements])
         guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
             logger.error("Failed to get window list")
+            AutopilotLogger.shared.error("Failed to get SC W List.")
             errorSubject.send(.cannotFetchWindowList)
             return meetingWindows
         }
