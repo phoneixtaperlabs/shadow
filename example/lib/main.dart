@@ -185,6 +185,7 @@ class _MyAppState extends State<MyApp> {
             if (autopilotEvent.isInMeeting) {
               print("isInMeeting is true. Calling showEnabledNotification...");
               showAskNotification();
+              // showEnabledNotification();
             } else {
               print("isInMeeting is ${autopilotEvent.isInMeeting}.");
             }
@@ -216,7 +217,16 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: Scaffold(appBar: AppBar(title: const Text('Plugin example app')), body: Center(child: Text('Running on: $_platformVersion\n'))),
+      home: Scaffold(
+        appBar: AppBar(title: const Text('Plugin example app')),
+        body: Center(child: Text('Running on: $_platformVersion\n')),
+        // Create a button to show Ask Notification
+        floatingActionButton: FloatingActionButton(
+          onPressed: showAskNotification,
+          tooltip: 'Show Ask Notification',
+          child: const Icon(Icons.notifications),
+        ),
+      ),
     );
   }
 }

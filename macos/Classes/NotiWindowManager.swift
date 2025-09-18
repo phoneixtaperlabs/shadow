@@ -31,7 +31,7 @@ enum NotiType {
         case .enabled:
             return 3.0 // enabled 타입은 3초
         case .ask:
-            return 5.0 // ask 타입은 5초
+            return 10.0 // ask 타입은 5초
         }
     }
 }
@@ -84,7 +84,7 @@ final class NotiWindowManager {
         print("NotiWindowManager deinit")
     }
     
-    func showNotiWindow(type: NotiType, autoCloseAfter seconds: TimeInterval? = nil, width: CGFloat = 350, height: CGFloat = 70) {
+    func showNotiWindow(type: NotiType, autoCloseAfter seconds: TimeInterval? = nil, width: CGFloat = 350, height: CGFloat = 75) {
         guard let screen = NSScreen.main else { return }
         let screenFrame = screen.visibleFrame
         
@@ -136,7 +136,7 @@ final class NotiWindowManager {
         let contentView = NotiView(
             title: "Meeting Detected",
             baseSubtitle: type.baseSubtitle,
-            initialCount: Int(effectiveSeconds),
+            initialCount: Int(effectiveSeconds) - 1,
             buttonText: type.buttonText,
             buttonAction: { [weak self] in
                 print("\(type.buttonText) Clicked")
