@@ -176,6 +176,8 @@ final class NotiWindowManager {
         window.ignoresMouseEvents = false
         window.isReleasedWhenClosed = false
         
+        window.sharingType = .none
+        
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
     }
