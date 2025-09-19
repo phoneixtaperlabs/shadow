@@ -12,7 +12,7 @@ enum NotiType {
         case .enabled:
             return "I'll start listening in "
         case .ask:
-            return "Automatically Dismissing in "
+            return "Automatically dismissing in "
         }
     }
     
@@ -161,7 +161,7 @@ final class NotiWindowManager {
         let hostingView = NSHostingView(rootView: contentView)
         customNotiWindow.contentView = hostingView
         
-        notiWindowController?.setupAutoClose(after: effectiveSeconds)
+        notiWindowController?.setupAutoClose(after: effectiveSeconds - 0.5)
         
         customNotiWindow.makeKeyAndOrderFront(nil)
         customNotiWindow.orderFrontRegardless()
@@ -176,7 +176,7 @@ final class NotiWindowManager {
         window.ignoresMouseEvents = false
         window.isReleasedWhenClosed = false
         
-        window.sharingType = .none
+//        window.sharingType = .none
         
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden

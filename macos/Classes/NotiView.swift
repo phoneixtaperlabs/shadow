@@ -106,8 +106,6 @@ struct NotiView: View {
                 } else {
                     self.timer?.invalidate()
                     self.timer = nil
-                    self.buttonAction() // 타임아웃 액션 실행
-                    
                 }
             }
         }
