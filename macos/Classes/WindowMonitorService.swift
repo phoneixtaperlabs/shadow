@@ -162,9 +162,22 @@ final class WindowMonitorService: WindowMonitoring {
     private func fetchMeetingWindows() -> Set<WindowInfo> {
         var meetingWindows = Set<WindowInfo>()
         
-        let targetBundleIDs: Set<String> = [
-            "com.microsoft.teams2"
-        ]
+//        let targetBundleIDs: Set<String> = [
+//            "com.microsoft.teams2"
+//        ]
+        
+//        let targetBundleIDs: Set<String> = [
+//            "com.google.Chrome",
+//            "com.apple.Safari",
+//            "com.microsoft.edgemac",
+//            "org.mozilla.firefox",
+//            "ai.perplexity.comet",
+//            "com.brave.Browser",
+//            "app.zen-browser.zen",
+//            "company.thebrowser.dia",
+//            "com.openai.atlas",
+//            "com.tinyspeck.slackmacgap"
+//        ]
 
         let options = CGWindowListOption(arrayLiteral: [.optionAll, .excludeDesktopElements])
         guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
@@ -199,8 +212,8 @@ final class WindowMonitorService: WindowMonitoring {
 //            guard targetBundleIDs.contains(bundleID) else {
 //                continue
 //            }
-            
-//            logger.info("타켓 윈도우 -- \(windowTitle)")
+//            
+//            logger.info("타켓 윈도우 -- \(windowTitle), \(windowID), \(ownerName)")
             
             if let windowInfo = detectMeetingWindow(
                 windowID: windowID,
@@ -232,12 +245,12 @@ final class WindowMonitorService: WindowMonitoring {
             }
             
             // Second, check for the special Google Meet format in the Arc browser.
-//            if bundleID == BundleID.arc && isGoogleMeetFormat(title: title) {
-//                return WindowInfo(
-//                    windowID: windowID, title: title, ownerName: ownerName, ownerPID: ownerPID,
-//                    bundleIdentifier: bundleID, platform: SupportedPlatform.platform(for: .googleMeet)
-//                )
-//            }
+            if bundleID == BundleID.arc && isGoogleMeetFormat(title: title) {
+                return WindowInfo(
+                    windowID: windowID, title: title, ownerName: ownerName, ownerPID: ownerPID,
+                    bundleIdentifier: bundleID, platform: SupportedPlatform.platform(for: .googleMeet)
+                )
+            }
         }
         
         // --- Case 2: A desktop meeting app that uses window titles ---

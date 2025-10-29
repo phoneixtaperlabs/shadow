@@ -13,9 +13,26 @@ struct MeetingStartedEvent: AutopilotEvent {
     struct PlatformInfo {
         let id: String
         let name: String
+        let microphoneBundleIDs: [String]?
+        let activeBrowsers: [String]?
         
         func toDictionary() -> [String: Any] {
-            return ["id": id, "name": name]
+            var dict: [String: Any] = [
+                "id": id,
+                "name": name
+            ]
+            
+            // 값이 있을 때만 추가
+            if let bundleIDs = microphoneBundleIDs {
+                dict["microphoneBundleIDs"] = bundleIDs
+            }
+            
+            if let browsers = activeBrowsers {
+                dict["activeBrowsers"] = browsers
+            }
+            
+            
+            return dict
         }
     }
     
@@ -286,8 +303,10 @@ extension AutopilotService {
         
         AutopilotLogger.shared.info("🟢 Meeting STARTED - Platform(s): \(platformNames)")
         
+        AutopilotLogger.shared.info("Browser Microphone")
+        
         let platformInfos = platforms.map { platform in
-            MeetingStartedEvent.PlatformInfo(id: platform.id, name: platform.name)
+            MeetingStartedEvent.PlatformInfo(id: platform.id, name: platform.name, microphoneBundleIDs: platform.microphoneBundleIDs, activeBrowsers: platform.type == .web ? activeBrowserMicrophones.map {$0.name} : nil)
         }
         let event = MeetingStartedEvent(platforms: platformInfos)
         

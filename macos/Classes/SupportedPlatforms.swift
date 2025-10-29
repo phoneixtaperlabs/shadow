@@ -35,6 +35,9 @@ enum PlatformID: String {
     case brave = "brave"
     case zen = "zen"
     case dia = "dia"
+    case atlas = "atlas"
+    
+    case arc = "arc"
 }
 
 // MARK: - Bundle Identifiers
@@ -64,6 +67,10 @@ enum BundleID {
     static let brave = "com.brave.Browser"
     static let zen = "app.zen-browser.zen"
     static let dia = "company.thebrowser.dia"
+    static let atlas = "com.openai.atlas"
+    
+    //Arc 재지원
+    static let arc = "company.thebrowser.Browser"
 }
 
 // MARK: - SupportedPlatform
@@ -214,7 +221,7 @@ extension SupportedPlatform {
             id: PlatformID.microsoftTeams.rawValue,
             name: "Microsoft Teams",
             type: .desktop,
-            windowTitleKeywords: ["(Meeting) | Microsoft Teams classic", "Microsoft Teams Meeting"],
+//            windowTitleKeywords: ["(Meeting) | Microsoft Teams classic", "Microsoft Teams Meeting"],
             microphoneBundleIDs: [BundleID.teams]
         ),
         .init(
@@ -318,6 +325,18 @@ extension SupportedPlatform {
             name: "Dia Browser",
             type: .browser,
             microphoneBundleIDs: [BundleID.dia]
+        ),
+        .init(
+            id: PlatformID.atlas.rawValue,
+            name: "Atlas Browser",
+            type: .browser,
+            microphoneBundleIDs: [BundleID.atlas]
+        ),
+        .init(
+            id: PlatformID.arc.rawValue,
+            name: "Arc Browser",
+            type: .browser,
+            microphoneBundleIDs: [BundleID.arc]
         )
     ]
 }
