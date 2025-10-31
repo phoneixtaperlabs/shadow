@@ -38,6 +38,9 @@ enum PlatformID: String {
     case atlas = "atlas"
     
     case arc = "arc"
+    
+    //PWA
+    case googleMeetPWA = "googleMeetPWA"
 }
 
 // MARK: - Bundle Identifiers
@@ -71,6 +74,8 @@ enum BundleID {
     
     //Arc 재지원
     static let arc = "company.thebrowser.Browser"
+    
+    static let chromeGoogleMeetPWA = "com.google.Chrome.app.kjgfgldnnfoeklkmfkjfagphfepbbdan"
 }
 
 // MARK: - SupportedPlatform
@@ -337,6 +342,15 @@ extension SupportedPlatform {
             name: "Arc Browser",
             type: .browser,
             microphoneBundleIDs: [BundleID.arc]
-        )
+        ),
+        
+        .init(
+            id: PlatformID.googleMeetPWA.rawValue,
+            name: "Google Meet PWA",
+            type: .web,
+            windowTitleKeywords: ["Google Meet - Meet -"],
+            compatibleBrowserIDs: [.googleChrome],
+            microphoneBundleIDs: [BundleID.chrome]
+        ),
     ]
 }

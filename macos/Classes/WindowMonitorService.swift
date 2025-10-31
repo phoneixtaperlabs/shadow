@@ -233,6 +233,14 @@ final class WindowMonitorService: WindowMonitoring {
     
     private func detectMeetingWindow(windowID: CGWindowID, title: String, ownerName: String, ownerPID: pid_t, bundleIdentifier: String?) -> WindowInfo? {
         guard let bundleID = bundleIdentifier else { return nil }
+        // --- Google Chrome Meet PWA
+        if bundleID == BundleID.chromeGoogleMeetPWA && isGoogleMeetPWA(title: title) {
+            return WindowInfo(
+                windowID: windowID, title: title, ownerName: ownerName, ownerPID: ownerPID,
+                bundleIdentifier: BundleID.chrome,
+                platform: SupportedPlatform.platform(for: .googleMeetPWA) 
+            )
+        }
         
         // --- Case 1: A web meeting running in a browser ---
         if SupportedPlatform.isBrowser(bundleID: bundleID) {
@@ -271,6 +279,16 @@ final class WindowMonitorService: WindowMonitoring {
 
 // MARK: - Special Case Utility Method
 extension WindowMonitorService {
+    private func isGoogleMeetPWA(title: String) -> Bool {
+        // 불필요한 공백 제거
+        let normalizedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // "Google Meet - Meet -" 패턴이 포함되어 있으면 미팅 중인 상태로 간주
+        return normalizedTitle.localizedCaseInsensitiveContains("Google Meet - Meet -")
+    }
+
+    
+    // Arc
     private func isGoogleMeetFormat(title: String) -> Bool {
         // Google Meet format: xxx-xxxx-xxx
         let components = title.split(separator: "-")

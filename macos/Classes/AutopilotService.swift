@@ -64,6 +64,11 @@ struct MeetingState {
             return hasWindow
         }
         
+        if platform.id == PlatformID.googleMeetPWA.rawValue {
+            print("MeetingState!!!! -- \(hasWindow) -- \(hasMicrophone)")
+            return hasWindow && hasMicrophone
+        }
+        
         // Desktop apps: just need microphone
         // Web apps: need window + microphone (via browser)
         switch platform.type {
