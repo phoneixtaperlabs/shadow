@@ -85,6 +85,12 @@ final class NotiWindowManager {
     }
     
     func showNotiWindow(type: NotiType, autoCloseAfter seconds: TimeInterval? = nil, width: CGFloat = 350, height: CGFloat = 75) {
+        // Close any existing notification before showing a new one
+        if let existingController = notiWindowController {
+            existingController.closeWindowSilently()
+            notiWindowController = nil
+        }
+
         guard let screen = NSScreen.main else { return }
         let screenFrame = screen.visibleFrame
         

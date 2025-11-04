@@ -66,7 +66,14 @@ final class NotiWindowController: NSWindowController, NSWindowDelegate {
         autoCloseTask = nil
         window?.close()
     }
-    
+
+    func closeWindowSilently() {
+        autoCloseTask?.cancel()
+        autoCloseTask = nil
+        onCloseCallback = nil
+        window?.close()
+    }
+
     func windowWillClose(_ notification: Notification) {
         // 3. Reuse the logger instance
         logger?.info("Window will close - cleaning up in controller.")
