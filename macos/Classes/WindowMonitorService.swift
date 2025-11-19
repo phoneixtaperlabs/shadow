@@ -213,7 +213,7 @@ final class WindowMonitorService: WindowMonitoring {
 //                continue
 //            }
 //            
-//            logger.info("타켓 윈도우 -- \(windowTitle), \(windowID), \(ownerName)")
+//            logger.info("타켓 윈도우 -- \(windowTitle), \(windowID), \(ownerName), \(bundleID)")
             
             if let windowInfo = detectMeetingWindow(
                 windowID: windowID,
@@ -240,6 +240,11 @@ final class WindowMonitorService: WindowMonitoring {
                 bundleIdentifier: BundleID.chrome,
                 platform: SupportedPlatform.platform(for: .googleMeetPWA) 
             )
+        }
+        
+        // --- Vivaldi Google Meet PWA
+        if bundleID == BundleID.vivaldiGoogleMeetPWA && isGoogleMeetPWA(title: title) {
+            return WindowInfo(windowID: windowID, title: title, ownerName: ownerName, ownerPID: ownerPID, bundleIdentifier: BundleID.vivaldi, platform: SupportedPlatform.platform(for: .googleMeetPWAVivaldi))
         }
         
         // --- Case 1: A web meeting running in a browser ---

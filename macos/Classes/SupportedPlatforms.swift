@@ -38,9 +38,11 @@ enum PlatformID: String {
     case atlas = "atlas"
     
     case arc = "arc"
-    
+    case vivaldi = "vivaldi"
+
     //PWA
     case googleMeetPWA = "googleMeetPWA"
+    case googleMeetPWAVivaldi = "googleMeetPWAVivaldi"
 }
 
 // MARK: - Bundle Identifiers
@@ -74,8 +76,10 @@ enum BundleID {
     
     //Arc 재지원
     static let arc = "company.thebrowser.Browser"
-    
+    static let vivaldi = "com.vivaldi.Vivaldi"
+
     static let chromeGoogleMeetPWA = "com.google.Chrome.app.kjgfgldnnfoeklkmfkjfagphfepbbdan"
+    static let vivaldiGoogleMeetPWA = "com.vivaldi.Vivaldi.app.kjgfgldnnfoeklkmfkjfagphfepbbdan"
 }
 
 // MARK: - SupportedPlatform
@@ -257,7 +261,7 @@ extension SupportedPlatform {
             name: "Google Meet",
             type: .web,
             windowTitleKeywords: ["Meet -"],
-            compatibleBrowserIDs: [.googleChrome, .safari, .edge, .firefox, .comet, .dia, .brave, .zen]
+            compatibleBrowserIDs: [.googleChrome, .safari, .edge, .firefox, .comet, .dia, .brave, .zen, .vivaldi]
         ),
         
         // Desktop Apps (primarily detected by Microphone)
@@ -343,7 +347,13 @@ extension SupportedPlatform {
             type: .browser,
             microphoneBundleIDs: [BundleID.arc]
         ),
-        
+        .init(
+            id: PlatformID.vivaldi.rawValue,
+            name: "Vivaldi Browser",
+            type: .browser,
+            microphoneBundleIDs: [BundleID.vivaldi]
+        ),
+
         .init(
             id: PlatformID.googleMeetPWA.rawValue,
             name: "Google Meet PWA",
@@ -351,6 +361,14 @@ extension SupportedPlatform {
             windowTitleKeywords: ["Google Meet - Meet -"],
             compatibleBrowserIDs: [.googleChrome],
             microphoneBundleIDs: [BundleID.chrome]
+        ),
+        .init(
+            id: PlatformID.googleMeetPWAVivaldi.rawValue,
+            name: "Google Meet PWA (Vivaldi)",
+            type: .web,
+            windowTitleKeywords: ["Google Meet - Meet -"],
+            compatibleBrowserIDs: [.vivaldi],
+            microphoneBundleIDs: [BundleID.vivaldi]
         ),
     ]
 }
