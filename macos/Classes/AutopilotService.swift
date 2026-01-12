@@ -159,7 +159,12 @@ extension AutopilotService {
     func startMonitoring() {
         logger.info("Starting Autopilot monitoring")
         AutopilotLogger.shared.info("Starting Autopilot Monitoring")
-        
+
+        // stopMonitoring()에서 cancellables가 비워졌으면 구독 재설정
+        if cancellables.isEmpty {
+            setupSubscriptions()
+        }
+
         windowMonitor.startMonitoring()
         avMonitor.startMonitoring()
     }

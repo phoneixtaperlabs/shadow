@@ -203,6 +203,23 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
+  Future<void> stopAutopilot() async {
+    try {
+      final result = await _autopilotPlugin.stopAutopilot();
+      print("Autopilot monitoring stopped: $result");
+    } on PlatformException catch (e) {
+      print("Failed to stop autopilot monitoring: '${e.code}, ${e.message} ${e.details}'.");
+    }
+
+    try {
+      await autopilotResultStreamSubscription?.cancel();
+      autopilotResultStreamSubscription = null;
+      print("Autopilot result stream subscription cancelled.");
+    } catch (e) {
+      print("Failed to cancel autopilot result stream subscription: $e");
+    }
+  }
+
   Future<dynamic> getSupportedPlatforms() async {
     try {
       final platforms = await _autopilotPlugin.getSupportedPlatforms();
@@ -219,8 +236,25 @@ class _MyAppState extends State<MyApp> {
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(title: const Text('Plugin example app')),
-        body: Center(child: Text('Running on: $_platformVersion\n')),
-        // Create a button to show Ask Notification
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('Running on: $_platformVersion\n'),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: startAutopilot,
+                child: const Text('Start Autopilot'),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: stopAutopilot,
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text('Stop Autopilot'),
+              ),
+            ],
+          ),
+        ),
         floatingActionButton: FloatingActionButton(
           onPressed: showAskNotification,
           tooltip: 'Show Ask Notification',
