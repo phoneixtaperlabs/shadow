@@ -63,8 +63,8 @@ final class AVDeviceMonitorService: AVMonitoring {
     
     // MARK: - Properties
     private var logProcess: Process?
-    private let pipe = Pipe()
-    private let errorPipe = Pipe()
+    private var pipe: Pipe?
+    private var errorPipe: Pipe?
     private let logger = Logger(subsystem: "com.yourapp.avmonitor", category: "AVMonitor")
     private let stateQueue = DispatchQueue(label: "com.yourapp.avmonitor.stateQueue")
     private var cancellables = Set<AnyCancellable>()
@@ -105,6 +105,9 @@ final class AVDeviceMonitorService: AVMonitoring {
         
         logger.info("Starting log stream monitoring")
         
+        self.pipe = Pipe()
+        self.errorPipe = Pipe()
+        
         let process = createLogProcess()
         self.logProcess = process
         
@@ -137,7 +140,7 @@ final class AVDeviceMonitorService: AVMonitoring {
     
     private func setupStandardOutput(for process: Process) {
         process.standardOutput = pipe
-        pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
+        pipe?.fileHandleForReading.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty, let output = String(data: data, encoding: .utf8) else { return }
             
@@ -149,7 +152,7 @@ final class AVDeviceMonitorService: AVMonitoring {
     
     private func setupStandardError(for process: Process) {
         process.standardError = errorPipe
-        errorPipe.fileHandleForReading.readabilityHandler = { handle in
+        errorPipe?.fileHandleForReading.readabilityHandler = { handle in
             let data = handle.availableData
             guard !data.isEmpty, let output = String(data: data, encoding: .utf8) else { return }
             AutopilotLogger.shared.error("STDERR -- \(output)")
@@ -179,8 +182,11 @@ final class AVDeviceMonitorService: AVMonitoring {
     func stopMonitoring() {
         logger.info("Stopping log stream monitoring")
         
-        pipe.fileHandleForReading.readabilityHandler = nil
-        errorPipe.fileHandleForReading.readabilityHandler = nil
+        pipe?.fileHandleForReading.readabilityHandler = nil
+        errorPipe?.fileHandleForReading.readabilityHandler = nil
+        
+        self.pipe = nil
+        self.errorPipe = nil
         
         if let process = logProcess {
             if process.isRunning {
@@ -319,8 +325,10 @@ final class AVDeviceMonitorService: AVMonitoring {
         logger.warning("Log process terminated unexpectedly")
         errorSubject.send(.logProcessTerminatedUnexpectedly)
         
-        pipe.fileHandleForReading.readabilityHandler = nil
-        errorPipe.fileHandleForReading.readabilityHandler = nil
+        pipe?.fileHandleForReading.readabilityHandler = nil
+        errorPipe?.fileHandleForReading.readabilityHandler = nil
+        self.pipe = nil
+        self.errorPipe = nil
         logProcess = nil
         
         stateQueue.async { [weak self] in
